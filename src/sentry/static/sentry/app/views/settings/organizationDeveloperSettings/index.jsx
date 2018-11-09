@@ -1,10 +1,11 @@
 import {Box, Flex} from 'grid-emotion';
 import React from 'react';
-import {Link} from 'react-router';
+import {Link, browserHistory} from 'react-router';
 
+import {addErrorMessage} from 'app/actionCreators/indicator';
 import AsyncView from 'app/views/asyncView';
 import Button from 'app/components/button';
-import CircleIndicator from 'app/components/circleIndicator';
+import {Client} from 'app/api';
 import EmptyMessage from 'app/views/settings/components/emptyMessage';
 import SentryAppAvatar from 'app/components/avatar/sentryAppAvatar';
 import PropTypes from 'prop-types';
@@ -15,10 +16,36 @@ import styled from 'react-emotion';
 import space from 'app/styles/space';
 import {withTheme} from 'emotion-theming';
 
+const api = new Client();
+
 class SentryApplicationRow extends React.PureComponent {
   static propTypes = {
     app: PropTypes.object.isRequired,
     orgId: PropTypes.string.isRequired,
+  };
+
+  redirectUrl = install => {
+    const {orgId, app} = this.props;
+
+    return app.redirectUrl
+      ? `${app.redirectUrl}?installationId=${install.uuid}&code=${install.code}`
+      : `/settings/${orgId}/integrations/`;
+  };
+
+  install = () => {
+    const {orgId, app} = this.props;
+
+    const success = install => browserHistory.push(this.redirectUrl(install));
+    const error = err => addErrorMessage(err.responseJSON);
+
+    const opts = {
+      method: 'POST',
+      data: {slug: app.slug},
+      success,
+      error,
+    };
+
+    api.request(`/organizations/${orgId}/sentry-app-installations/`, opts);
   };
 
   render() {
@@ -39,11 +66,26 @@ class SentryApplicationRow extends React.PureComponent {
           </SentryAppBox>
         </Flex>
 
-        <Flex>
+        <StyledButtonGroup>
           <Box>
-            <Button icon="icon-trash" onClick={() => {}} className={btnClassName} />
+            <StyledInstallButton
+              onClick={this.install}
+              size="small"
+              className="btn btn-default"
+            >
+              Install
+            </StyledInstallButton>
           </Box>
-        </Flex>
+
+          <Box>
+            <Button
+              icon="icon-trash"
+              size="small"
+              onClick={() => {}}
+              className={btnClassName}
+            />
+          </Box>
+        </StyledButtonGroup>
       </SentryAppItem>
     );
   }
@@ -89,6 +131,10 @@ export default class OrganizationDeveloperSettings extends AsyncView {
   }
 }
 
+const StyledButtonGroup = styled(Flex)`
+  align-items: center;
+`;
+
 const SentryAppItem = styled(PanelItem)`
   justify-content: space-between;
   padding: 15px;
@@ -103,6 +149,14 @@ const SentryAppName = styled('div')`
   margin-bottom: 3px;
 `;
 
+const StyledInstallButton = styled(
+  withTheme(({...props}) => {
+    return <Button {...props}>{t('Install')}</Button>;
+  })
+)`
+  margin-right: 5px;
+`;
+
 const StyledLink = styled(Link)`
   font-size: 22px;
   color: ${props => props.theme.textColor};
@@ -112,10 +166,6 @@ const Status = styled(
   withTheme(({published, ...props}) => {
     return (
       <Flex align="center">
-        <CircleIndicator
-          size={4}
-          color={published ? props.theme.success : props.theme.gray2}
-        />
         <div {...props}>{published ? t('published') : t('unpublished')}</div>
       </Flex>
     );
