@@ -136,8 +136,8 @@ class SearchVisitor(NodeVisitor):
 
         return SearchFilter(
             SearchKey(search_value),
-            'IS NOT NULL',
-            SearchValue(None),
+            '!=',
+            SearchValue(''),
         )
 
     def visit_search_key(self, node, children):
